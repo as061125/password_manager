@@ -1,0 +1,92 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ── 检查 + 测试 ─────────────────────────────────────────────────────
+  check:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      # Linux 需要系统依赖
+      - name: Install Linux deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libx11-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxcb1-dev \
+            libgtk-3-dev
+
+      - name: Check
+        run: cargo check --manifest-path iced_demo/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --manifest-path iced_demo/Cargo.toml -- -D warnings
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path iced_demo/Cargo.toml --check
+
+  # ── 构建 Release ────────────────────────────────────────────────────
+  build:
+    needs: check
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Linux deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libx11-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxcb1-dev \
+            libgtk-3-dev
+
+      - name: Build Release
+        run: cargo build --release --manifest-path iced_demo/Cargo.toml
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pwm-${{ matrix.os }}
+          path: |
+            iced_demo/target/release/iced_demo${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+            iced_demo/target/release/build/*/out/icon.ico
+          retention-days: 30

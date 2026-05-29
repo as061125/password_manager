@@ -2,6 +2,7 @@
 passwords.vault
 passwords.vault.*
 *.meta
+*.iter
 export_recovery/
 vault_history/
 *.tmp

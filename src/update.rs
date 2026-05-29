@@ -59,6 +59,7 @@ fn persist(model: &UnlockedModel) -> Task<Message> {
         settings: vault::VaultSettings {
             history_count: model.settings.history_count,
             verify_hash: model.settings.verify_hash,
+            pbkdf2_iter: model.settings.pbkdf2_iter,
         },
     };
 
@@ -110,6 +111,7 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                             let settings = VaultSettings {
                                 history_count: content.settings.history_count,
                                 verify_hash: content.settings.verify_hash,
+                                pbkdf2_iter: content.settings.pbkdf2_iter,
                             };
                             *model = Model::Unlocked(UnlockedModel::new(
                                 content.entries, salt, key, path, pwd.clone(), settings,
@@ -371,7 +373,7 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                     let content = vault::VaultContent {
                         version: 1,
                         entries: u.entries.clone(),
-                        settings: vault::VaultSettings { history_count: u.settings.history_count, verify_hash: u.settings.verify_hash },
+                        settings: vault::VaultSettings { history_count: u.settings.history_count, verify_hash: u.settings.verify_hash, pbkdf2_iter: u.settings.pbkdf2_iter },
                     };
                     // 导出到 vault 同级目录下的 export/ 文件夹
                     let export_dir = path.parent().unwrap_or(Path::new(".")).join("export_recovery");
@@ -393,7 +395,7 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                     let rp = Path::new(&u.import_recovery_path);
                     match vault::import_vault(vp, rp) {
                         Ok((content, salt, key)) => {
-                            let settings = VaultSettings { history_count: content.settings.history_count, verify_hash: content.settings.verify_hash };
+                            let settings = VaultSettings { history_count: content.settings.history_count, verify_hash: content.settings.verify_hash, pbkdf2_iter: content.settings.pbkdf2_iter };
                             u.entries = content.entries;
                             u.vault_salt = salt;
                             u.enc_key = key;

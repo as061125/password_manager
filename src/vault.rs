@@ -41,7 +41,27 @@ use crate::model::PasswordEntry;
 pub const SALT_LEN: usize = 16;
 pub const NONCE_LEN: usize = 12;
 pub const KEY_LEN: usize = 32;
-const PBKDF2_ITER: u32 = 100_000;
+const DEFAULT_PBKDF2_ITER: u32 = 100_000;
+
+/// 迭代次数中继文件路径（明文，仅用于解密前读取）
+fn iter_path(path: &Path) -> PathBuf {
+    let mut p = path.to_path_buf();
+    p.set_extension("vault.iter");
+    p
+}
+
+/// 保存迭代次数到中继文件
+fn save_iter(path: &Path, iter: u32) {
+    let _ = std::fs::write(iter_path(path), iter.to_string());
+}
+
+/// 读取迭代次数，不存在则用默认值
+fn load_iter(path: &Path) -> u32 {
+    std::fs::read_to_string(iter_path(path))
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(DEFAULT_PBKDF2_ITER)
+}
 
 // ── 序列化结构 ─────────────────────────────────────────────────────────────
 
@@ -54,9 +74,12 @@ pub struct VaultContent {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct VaultSettings {
     pub history_count: usize,
     pub verify_hash: bool,
+    /// PBKDF2 迭代次数（默认 100k，旧 vault 加载时自动补默认值）
+    pub pbkdf2_iter: u32,
 }
 
 impl Default for VaultSettings {
@@ -64,15 +87,16 @@ impl Default for VaultSettings {
         Self {
             history_count: 5,
             verify_hash: true,
+            pbkdf2_iter: 100_000,
         }
     }
 }
 
 // ── 密钥派生 ───────────────────────────────────────────────────────────────
 
-pub fn derive_key(password: &str, salt: &[u8]) -> [u8; KEY_LEN] {
+pub fn derive_key(password: &str, salt: &[u8], iter: u32) -> [u8; KEY_LEN] {
     let mut key = [0u8; KEY_LEN];
-    pbkdf2_hmac::<Sha256>(password.as_bytes(), salt, PBKDF2_ITER, &mut key);
+    pbkdf2_hmac::<Sha256>(password.as_bytes(), salt, iter, &mut key);
     key
 }
 
@@ -186,6 +210,9 @@ pub fn save(
         let _ = fs::write(&meta_p, format!("sha256:{}\n", hash));
     }
 
+    // 6. 写入迭代次数中继文件
+    save_iter(path, content.settings.pbkdf2_iter);
+
     Ok(())
 }
 
@@ -223,7 +250,9 @@ pub fn load(
     let nonce_bytes = &data[SALT_LEN..SALT_LEN + NONCE_LEN];
     let ciphertext = &data[SALT_LEN + NONCE_LEN..];
 
-    let key = derive_key(password, &salt);
+    // 从中继文件读取迭代次数（旧 vault 无此文件则用默认值 100k）
+    let iter = load_iter(path);
+    let key = derive_key(password, &salt, iter);
     let aes_key = aes_gcm::Key::<Aes256Gcm>::from_slice(&key);
     let cipher = Aes256Gcm::new(aes_key);
     let nonce = Nonce::from_slice(nonce_bytes);
@@ -247,7 +276,7 @@ pub fn create(
 ) -> Result<([u8; SALT_LEN], [u8; KEY_LEN]), String> {
     let mut salt = [0u8; SALT_LEN];
     OsRng.fill_bytes(&mut salt);
-    let key = derive_key(password, &salt);
+    let key = derive_key(password, &salt, settings.pbkdf2_iter);
     let content = VaultContent {
         version: 1,
         entries: vec![],

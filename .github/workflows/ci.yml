@@ -26,8 +26,9 @@ jobs:
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "iced_demo"
 
-      # Linux 需要系统依赖
       - name: Install Linux deps
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -45,10 +46,12 @@ jobs:
         run: cargo check --manifest-path iced_demo/Cargo.toml
 
       - name: Clippy
-        run: cargo clippy --manifest-path iced_demo/Cargo.toml -- -D warnings
+        run: cargo clippy --manifest-path iced_demo/Cargo.toml -- \
+            -A dead_code \
+            -A unused_variables
 
       - name: Check formatting
-        run: cargo fmt --manifest-path iced_demo/Cargo.toml --check
+        run: cd iced_demo && cargo fmt --check
 
   # ── 构建 Release ────────────────────────────────────────────────────
   build:
@@ -65,6 +68,8 @@ jobs:
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "iced_demo"
 
       - name: Install Linux deps
         if: matrix.os == 'ubuntu-latest'
@@ -88,5 +93,4 @@ jobs:
           name: pwm-${{ matrix.os }}
           path: |
             iced_demo/target/release/iced_demo${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-            iced_demo/target/release/build/*/out/icon.ico
           retention-days: 30

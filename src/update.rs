@@ -364,10 +364,33 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                     let hc: usize = u.settings_history_count.parse().unwrap_or(5).clamp(0, 10);
                     u.settings.history_count = hc;
                     u.settings.verify_hash = u.settings_verify;
+                    let old_iter = u.settings.pbkdf2_iter;
                     let iter: u32 = u.settings_pbkdf2_iter.parse().unwrap_or(100_000).clamp(10_000, 10_000_000);
                     u.settings.pbkdf2_iter = iter;
+
                     u.settings_visible = false;
-                    Some(persist(u))
+                    // 如果迭代次数改变了，需要用主密码重新派生密钥
+                    if iter != old_iter && !u.master_password.is_empty() {
+                        let path = u.vault_path.clone();
+                        let pwd = u.master_password.clone();
+                        let salt = u.vault_salt;
+                        let content = vault::VaultContent {
+                            version: 1,
+                            entries: u.entries.clone(),
+                            settings: vault::VaultSettings {
+                                history_count: u.settings.history_count,
+                                verify_hash: u.settings.verify_hash,
+                                pbkdf2_iter: iter,
+                            },
+                        };
+                        match vault::reencrypt(&path, &pwd, iter, &content, &salt) {
+                            Ok(new_key) => { u.enc_key = new_key; }
+                            Err(_) => { u.settings.pbkdf2_iter = old_iter; }
+                        }
+                        None
+                    } else {
+                        Some(persist(u))
+                    }
                 }
 
                 // ── 导出 ──

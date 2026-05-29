@@ -210,9 +210,6 @@ pub fn save(
         let _ = fs::write(&meta_p, format!("sha256:{}\n", hash));
     }
 
-    // 6. 写入迭代次数中继文件
-    save_iter(path, content.settings.pbkdf2_iter);
-
     Ok(())
 }
 
@@ -283,7 +280,24 @@ pub fn create(
         settings: settings.clone(),
     };
     save(path, &salt, &key, &content)?;
+    save_iter(path, settings.pbkdf2_iter);
     Ok((salt, key))
+}
+
+/// 用新迭代次数重新加密整个 vault（settings.pbkdf2_iter 会更新为 new_iter）
+pub fn reencrypt(
+    path: &Path,
+    password: &str,
+    new_iter: u32,
+    content: &VaultContent,
+    current_salt: &[u8; SALT_LEN],
+) -> Result<[u8; KEY_LEN], String> {
+    let new_key = derive_key(password, current_salt, new_iter);
+    let mut new_content = content.clone();
+    new_content.settings.pbkdf2_iter = new_iter;
+    save(path, current_salt, &new_key, &new_content)?;
+    save_iter(path, new_iter);
+    Ok(new_key)
 }
 
 // ── 文件存在性 ─────────────────────────────────────────────────────────────

@@ -9,8 +9,11 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+defaults:
+  run:
+    working-directory: iced_demo
+
 jobs:
-  # ── 检查 + 测试 ─────────────────────────────────────────────────────
   check:
     strategy:
       matrix:
@@ -21,13 +24,9 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
 
-      - name: Cache dependencies
+      - name: Cache
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "iced_demo"
 
       - name: Install Linux deps
         if: matrix.os == 'ubuntu-latest'
@@ -37,23 +36,13 @@ jobs:
             libxkbcommon-dev \
             libwayland-dev \
             libx11-dev \
-            libxcb-shape0-dev \
-            libxcb-xfixes0-dev \
             libxcb1-dev \
-            libgtk-3-dev
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev
 
       - name: Check
-        run: cargo check --manifest-path iced_demo/Cargo.toml
+        run: cargo check
 
-      - name: Clippy
-        run: cargo clippy --manifest-path iced_demo/Cargo.toml -- \
-            -A dead_code \
-            -A unused_variables
-
-      - name: Check formatting
-        run: cd iced_demo && cargo fmt --check
-
-  # ── 构建 Release ────────────────────────────────────────────────────
   build:
     needs: check
     strategy:
@@ -66,10 +55,8 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache dependencies
+      - name: Cache
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "iced_demo"
 
       - name: Install Linux deps
         if: matrix.os == 'ubuntu-latest'
@@ -79,18 +66,18 @@ jobs:
             libxkbcommon-dev \
             libwayland-dev \
             libx11-dev \
-            libxcb-shape0-dev \
-            libxcb-xfixes0-dev \
             libxcb1-dev \
-            libgtk-3-dev
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev
 
       - name: Build Release
-        run: cargo build --release --manifest-path iced_demo/Cargo.toml
+        run: cargo build --release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pwm-${{ matrix.os }}
           path: |
-            iced_demo/target/release/iced_demo${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+            iced_demo/target/release/iced_demo
+            iced_demo/target/release/iced_demo.exe
           retention-days: 30

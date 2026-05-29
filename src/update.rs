@@ -326,6 +326,8 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                 }
                 Message::DeleteEntry(idx) => {
                     if idx < u.entries.len() {
+                        use zeroize::Zeroize;
+                        u.entries[idx].password.zeroize();
                         u.entries.remove(idx);
                         if !u.search_query.is_empty() {
                             u.search_results = search::run_search(&u.search_query, &u.entries);

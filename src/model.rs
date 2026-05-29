@@ -120,6 +120,14 @@ impl UnlockedModel {
     }
 }
 
+impl Drop for UnlockedModel {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.enc_key.zeroize();
+        self.master_password.zeroize();
+    }
+}
+
 /// 顶层状态
 #[derive(Debug)]
 pub enum Model {

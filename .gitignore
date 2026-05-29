@@ -1,0 +1,7 @@
+/target
+passwords.vault
+passwords.vault.*
+*.meta
+export_recovery/
+vault_history/
+*.tmp

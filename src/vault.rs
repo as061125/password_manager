@@ -19,6 +19,23 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// 按平台返回标准 vault 路径
+pub fn default_vault_path() -> PathBuf {
+    let dir = dirs::data_dir()
+        .map(|d| d.join("pwm"))
+        .unwrap_or_else(|| PathBuf::from("."));
+    dir.join("passwords.vault")
+}
+
+/// 确保 vault 所在目录存在
+pub fn ensure_vault_dir(path: &Path) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("创建目录失败: {e}"))
+    } else {
+        Ok(())
+    }
+}
+
 use crate::model::PasswordEntry;
 
 pub const SALT_LEN: usize = 16;

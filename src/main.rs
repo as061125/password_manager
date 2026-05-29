@@ -20,14 +20,10 @@ mod search;
 mod update;
 mod view;
 
-use std::path::PathBuf;
-
 use iced::keyboard;
 use iced::{Font, Subscription, Task, Theme};
 
 use crate::model::{LockedModel, Model};
-
-const VAULT_FILE: &str = "passwords.vault";
 
 fn main() -> iced::Result {
     // 检测 CLI 模式：有命令行参数且不是由 Iced 启动
@@ -41,7 +37,8 @@ fn main() -> iced::Result {
     }
 
     // GUI 模式
-    let vault_path = PathBuf::from(VAULT_FILE);
+    let vault_path = vault::default_vault_path();
+    let _ = vault::ensure_vault_dir(&vault_path);
     let is_new = !vault::exists(&vault_path);
 
     iced::application("密码本", update::update, view::view)

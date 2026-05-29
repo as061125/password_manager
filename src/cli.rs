@@ -10,8 +10,6 @@ use crate::message::{self, PwmCommand};
 use crate::model::{PasswordEntry, VaultSettings};
 use crate::vault;
 
-const VAULT_FILE: &str = "passwords.vault";
-
 /// session 文件路径（OS 临时目录）
 fn session_path() -> std::path::PathBuf {
     std::env::temp_dir().join("pwm_session")
@@ -137,22 +135,23 @@ pub fn run(args: &[String]) -> Result<(), String> {
     }
 
     // 加载 vault（先获取主密码，仅一次）
-    let vault_path = Path::new(VAULT_FILE);
+    let vault_path = vault::default_vault_path();
+    let _ = vault::ensure_vault_dir(&vault_path);
     let password = get_master_password(cli_password);
 
-    if !vault::exists(vault_path) {
+    if !vault::exists(&vault_path) {
         // 如果是 add 命令且 vault 不存在，自动创建
         let is_add = matches!(cmd, PwmCommand::Add { .. });
         if !is_add {
             return Err("保险库不存在，请先通过 GUI 创建或导入".into());
         }
-        vault::create(vault_path, &password, &VaultSettings::default())
+        vault::create(&vault_path, &password, &VaultSettings::default())
             .map_err(|e| format!("创建保险库失败: {e}"))?;
         println!("已创建新保险库");
     }
 
     let (mut content, salt, key) =
-        vault::load(vault_path, &password, false).map_err(|e| format!("加载失败: {e}"))?;
+        vault::load(&vault_path, &password, false).map_err(|e| format!("加载失败: {e}"))?;
 
     // 执行命令
     match cmd {
@@ -289,12 +288,12 @@ pub fn run(args: &[String]) -> Result<(), String> {
             let (imported, _salt2, _key2) =
                 vault::import_vault(vp, rp).map_err(|e| format!("导入失败: {e}"))?;
             content.entries = imported.entries;
-            vault::save(Path::new(VAULT_FILE), &salt, &key, &content)
+            vault::save(&vault_path, &salt, &key, &content)
                 .map_err(|e| format!("保存失败: {e}"))?;
             println!("已导入 {} 个条目", content.entries.len());
         }
         PwmCommand::History => {
-            let hdir = vault::history_dir(Path::new(VAULT_FILE));
+            let hdir = vault::history_dir(&vault_path);
             if let Ok(entries) = std::fs::read_dir(&hdir) {
                 let mut files: Vec<_> = entries
                     .filter_map(|e| e.ok())
@@ -313,7 +312,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
             }
         }
         PwmCommand::Restore { index } => {
-            let hdir = vault::history_dir(Path::new(VAULT_FILE));
+            let hdir = vault::history_dir(&vault_path);
             if let Ok(entries) = std::fs::read_dir(&hdir) {
                 let mut files: Vec<_> = entries
                     .filter_map(|e| e.ok())
@@ -325,7 +324,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
                         vault::load(src, &password, false)
                             .map_err(|e| format!("读取历史版本失败: {e}"))?;
                     content.entries = hist_content.entries;
-                    vault::save(Path::new(VAULT_FILE), &salt, &key, &content)
+                    vault::save(&vault_path, &salt, &key, &content)
                         .map_err(|e| format!("保存失败: {e}"))?;
                     println!("已恢复到历史版本 #{}", index);
                 } else {
@@ -345,7 +344,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
                 }
             }
             if found {
-                vault::save(Path::new(VAULT_FILE), &salt, &key, &content)
+                vault::save(&vault_path, &salt, &key, &content)
                     .map_err(|e| format!("保存失败: {e}"))?;
                 println!("已重命名: {} → {}", old_name, new_name);
             } else {

@@ -50,8 +50,9 @@ pub struct UnlockedModel {
     pub random_length: String,
     // ── 设置面板 ──
     pub settings_visible: bool,
-    pub settings_history_count: String, // 编辑中的值
+    pub settings_history_count: String,
     pub settings_verify: bool,
+    pub settings_pbkdf2_iter: String,
     // ── 导出 ──
     pub show_export_dialog: bool,
     pub export_status: Option<String>,
@@ -103,6 +104,7 @@ impl UnlockedModel {
             settings_visible: false,
             settings_history_count: settings.history_count.to_string(),
             settings_verify: settings.verify_hash,
+            settings_pbkdf2_iter: settings.pbkdf2_iter.to_string(),
             show_export_dialog: false,
             export_status: None,
             show_import_dialog: false,

@@ -146,6 +146,7 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                     if u.settings_visible {
                         u.settings_history_count = u.settings.history_count.to_string();
                         u.settings_verify = u.settings.verify_hash;
+                        u.settings_pbkdf2_iter = u.settings.pbkdf2_iter.to_string();
                     }
                     None
                 }
@@ -355,10 +356,16 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                     None
                 }
                 Message::SettingsVerifyToggled(v) => { u.settings_verify = v; None }
+                Message::SettingsPbkdf2IterChanged(val) => {
+                    u.settings_pbkdf2_iter = val.chars().filter(|c| c.is_ascii_digit()).collect();
+                    None
+                }
                 Message::SettingsSave => {
                     let hc: usize = u.settings_history_count.parse().unwrap_or(5).clamp(0, 10);
                     u.settings.history_count = hc;
                     u.settings.verify_hash = u.settings_verify;
+                    let iter: u32 = u.settings_pbkdf2_iter.parse().unwrap_or(100_000).clamp(10_000, 10_000_000);
+                    u.settings.pbkdf2_iter = iter;
                     u.settings_visible = false;
                     Some(persist(u))
                 }

@@ -35,6 +35,7 @@ pub enum Message {
     ToggleSettings,
     SettingsHistoryCountChanged(String),
     SettingsVerifyToggled(bool),
+    SettingsPbkdf2IterChanged(String),
     SettingsSave,
 
     // ── 导出 ──

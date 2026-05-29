@@ -72,12 +72,32 @@ fn has_duplicate_name(entries: &[PasswordEntry], name: &str) -> bool {
     entries.iter().any(|e| e.name.to_lowercase() == name.trim().to_lowercase())
 }
 
-/// 生成守护进程：监控父进程退出后清除 session
+/// 生成守护进程：监控终端进程（shell）退出后清除 session
 fn spawn_session_guard() {
-    let pid = std::process::id();
+    // 找终端/shell 的 PID，不是 pwm 自己的 PID
+    #[cfg(windows)]
+    let shell_pid = {
+        extern "system" {
+            fn GetConsoleWindow() -> *mut std::ffi::c_void;
+            fn GetWindowThreadProcessId(hWnd: *mut std::ffi::c_void, lpdwProcessId: *mut u32) -> u32;
+        }
+        let mut pid: u32 = 0;
+        unsafe {
+            let hwnd = GetConsoleWindow();
+            if !hwnd.is_null() {
+                GetWindowThreadProcessId(hwnd, &mut pid);
+            }
+        }
+        pid
+    };
+    #[cfg(unix)]
+    let shell_pid = unsafe { libc::getppid() as u32 };
+
+    let target = if shell_pid != 0 { shell_pid } else { std::process::id() };
+
     if let Ok(exe) = std::env::current_exe() {
         let mut cmd = std::process::Command::new(exe);
-        cmd.args(["--guard-session", &pid.to_string()]);
+        cmd.args(["--guard-session", &target.to_string()]);
         #[cfg(windows)]
         cmd.creation_flags(0x08000000);
         let _ = cmd.spawn();

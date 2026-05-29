@@ -16,6 +16,7 @@ rpassword = "7"
 arboard = "3"
 dirs = "5"
 zeroize = { version = "1", features = ["zeroize_derive"] }
+libc = "0.2"
 
 [build-dependencies]
 winres = "0.1"

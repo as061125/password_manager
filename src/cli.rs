@@ -71,6 +71,25 @@ fn has_duplicate_name(entries: &[PasswordEntry], name: &str) -> bool {
     entries.iter().any(|e| e.name.to_lowercase() == name.trim().to_lowercase())
 }
 
+/// 注册清理钩子：终端关闭/登出时清除 session（Windows）
+fn register_cleanup() {
+    #[cfg(windows)]
+    {
+        extern "system" {
+            fn SetConsoleCtrlHandler(
+                handler: Option<unsafe extern "system" fn(u32) -> i32>,
+                add: i32,
+            ) -> i32;
+        }
+        unsafe extern "system" fn ctrl_handler(_: u32) -> i32 {
+            let _ = std::fs::remove_file(session_path());
+            1
+        }
+        unsafe { SetConsoleCtrlHandler(Some(ctrl_handler), 1); }
+    }
+    // Unix: session 存 /tmp，多数发行版重启清空，不额外处理
+}
+
 /// 确保控制台输出 UTF-8（Windows 默认代码页非 UTF-8）
 fn init_utf8() {
     #[cfg(windows)]
@@ -86,6 +105,7 @@ fn init_utf8() {
 /// CLI 主入口，返回是否处理成功
 pub fn run(args: &[String]) -> Result<(), String> {
     init_utf8();
+    register_cleanup();
 
     // 提取 --password 参数（可通过 --password=xxx 或 --password xxx 传入）
     let mut cmd_args: Vec<String> = Vec::new();

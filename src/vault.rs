@@ -78,8 +78,9 @@ pub struct VaultContent {
 pub struct VaultSettings {
     pub history_count: usize,
     pub verify_hash: bool,
-    /// PBKDF2 迭代次数（默认 100k，旧 vault 加载时自动补默认值）
     pub pbkdf2_iter: u32,
+    /// 自动锁定分钟数（0=不锁定）
+    pub auto_lock_minutes: u32,
 }
 
 impl Default for VaultSettings {
@@ -88,6 +89,7 @@ impl Default for VaultSettings {
             history_count: 5,
             verify_hash: true,
             pbkdf2_iter: 100_000,
+            auto_lock_minutes: 0,
         }
     }
 }

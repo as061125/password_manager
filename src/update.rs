@@ -13,7 +13,7 @@ use std::path::Path;
 
 use crate::{
     message::{self, Message, PwmCommand},
-    model::{Model, PasswordEntry, UnlockedModel, VaultSettings},
+    model::{LockedModel, Model, PasswordEntry, UnlockedModel, VaultSettings},
     search, vault,
 };
 
@@ -60,6 +60,7 @@ fn persist(model: &UnlockedModel) -> Task<Message> {
             history_count: model.settings.history_count,
             verify_hash: model.settings.verify_hash,
             pbkdf2_iter: model.settings.pbkdf2_iter,
+            auto_lock_minutes: model.settings.auto_lock_minutes,
         },
     };
 
@@ -112,6 +113,7 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                                 history_count: content.settings.history_count,
                                 verify_hash: content.settings.verify_hash,
                                 pbkdf2_iter: content.settings.pbkdf2_iter,
+                                auto_lock_minutes: content.settings.auto_lock_minutes,
                             };
                             *model = Model::Unlocked(UnlockedModel::new(
                                 content.entries, salt, key, path, pwd.clone(), settings,
@@ -133,6 +135,10 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
         },
 
         Model::Unlocked(u) => {
+            // 非定时器消息 → 重置无操作计时
+            if !matches!(message, Message::CheckInactivity | Message::CheckClipboardTimer) {
+                u.last_activity = std::time::Instant::now();
+            }
             let result = match message {
                 // ── 导航 ──
                 Message::ToggleMenu => {
@@ -147,6 +153,7 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                         u.settings_history_count = u.settings.history_count.to_string();
                         u.settings_verify = u.settings.verify_hash;
                         u.settings_pbkdf2_iter = u.settings.pbkdf2_iter.to_string();
+                        u.settings_auto_lock = u.settings.auto_lock_minutes.to_string();
                     }
                     None
                 }
@@ -351,6 +358,21 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                     None
                 }
                 Message::CheckClipboardTimer => { None }
+                Message::CheckInactivity => {
+                    if u.settings.auto_lock_minutes > 0
+                        && u.last_activity.elapsed().as_secs() / 60 >= u.settings.auto_lock_minutes as u64
+                    {
+                        // 超时，锁屏：切回 Locked 状态
+                        let path = u.vault_path.clone();
+                        *model = Model::Locked(LockedModel {
+                            vault_path: path,
+                            master_password: String::new(),
+                            error: None,
+                            is_new: false,
+                        });
+                    }
+                    None
+                }
 
                 // ── 设置 ──
                 Message::SettingsHistoryCountChanged(val) => {
@@ -362,10 +384,15 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                     u.settings_pbkdf2_iter = val.chars().filter(|c| c.is_ascii_digit()).collect();
                     None
                 }
+                Message::SettingsAutoLockChanged(val) => {
+                    u.settings_auto_lock = val.chars().filter(|c| c.is_ascii_digit()).collect();
+                    None
+                }
                 Message::SettingsSave => {
                     let hc: usize = u.settings_history_count.parse().unwrap_or(5).clamp(0, 10);
                     u.settings.history_count = hc;
                     u.settings.verify_hash = u.settings_verify;
+                    u.settings.auto_lock_minutes = u.settings_auto_lock.parse().unwrap_or(0).clamp(0, 999);
                     let old_iter = u.settings.pbkdf2_iter;
                     let iter: u32 = u.settings_pbkdf2_iter.parse().unwrap_or(100_000).clamp(10_000, 10_000_000);
                     u.settings.pbkdf2_iter = iter;
@@ -383,6 +410,7 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                                 history_count: u.settings.history_count,
                                 verify_hash: u.settings.verify_hash,
                                 pbkdf2_iter: iter,
+                                auto_lock_minutes: u.settings.auto_lock_minutes,
                             },
                         };
                         match vault::reencrypt(&path, &pwd, iter, &content, &salt) {
@@ -405,7 +433,7 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                     let content = vault::VaultContent {
                         version: 1,
                         entries: u.entries.clone(),
-                        settings: vault::VaultSettings { history_count: u.settings.history_count, verify_hash: u.settings.verify_hash, pbkdf2_iter: u.settings.pbkdf2_iter },
+                        settings: vault::VaultSettings { history_count: u.settings.history_count, verify_hash: u.settings.verify_hash, pbkdf2_iter: u.settings.pbkdf2_iter, auto_lock_minutes: u.settings.auto_lock_minutes },
                     };
                     // 导出到 vault 同级目录下的 export/ 文件夹
                     let export_dir = path.parent().unwrap_or(Path::new(".")).join("export_recovery");
@@ -427,7 +455,7 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                     let rp = Path::new(&u.import_recovery_path);
                     match vault::import_vault(vp, rp) {
                         Ok((content, salt, key)) => {
-                            let settings = VaultSettings { history_count: content.settings.history_count, verify_hash: content.settings.verify_hash, pbkdf2_iter: content.settings.pbkdf2_iter };
+                            let settings = VaultSettings { history_count: content.settings.history_count, verify_hash: content.settings.verify_hash, pbkdf2_iter: content.settings.pbkdf2_iter, auto_lock_minutes: content.settings.auto_lock_minutes };
                             u.entries = content.entries;
                             u.vault_salt = salt;
                             u.enc_key = key;

@@ -48,11 +48,14 @@ pub struct UnlockedModel {
     pub new_password: String,
     pub confirm_password: String,
     pub random_length: String,
+    /// 上次用户操作时间（用于自动锁定）
+    pub last_activity: std::time::Instant,
     // ── 设置面板 ──
     pub settings_visible: bool,
     pub settings_history_count: String,
     pub settings_verify: bool,
     pub settings_pbkdf2_iter: String,
+    pub settings_auto_lock: String,
     // ── 导出 ──
     pub show_export_dialog: bool,
     pub export_status: Option<String>,
@@ -101,10 +104,12 @@ impl UnlockedModel {
             new_password: String::new(),
             confirm_password: String::new(),
             random_length: String::from("16"),
+            last_activity: std::time::Instant::now(),
             settings_visible: false,
             settings_history_count: settings.history_count.to_string(),
             settings_verify: settings.verify_hash,
             settings_pbkdf2_iter: settings.pbkdf2_iter.to_string(),
+            settings_auto_lock: settings.auto_lock_minutes.to_string(),
             show_export_dialog: false,
             export_status: None,
             show_import_dialog: false,

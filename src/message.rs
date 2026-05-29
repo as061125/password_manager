@@ -36,6 +36,7 @@ pub enum Message {
     SettingsHistoryCountChanged(String),
     SettingsVerifyToggled(bool),
     SettingsPbkdf2IterChanged(String),
+    SettingsAutoLockChanged(String),
     SettingsSave,
 
     // ── 导出 ──
@@ -52,6 +53,7 @@ pub enum Message {
 
     // ── 定时器 ──
     CheckClipboardTimer,
+    CheckInactivity,
 
     // ── <cmd> 命令结果 ──
     HideCmdResult,

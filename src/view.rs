@@ -97,6 +97,9 @@ fn main_area(model: &UnlockedModel) -> Element<'_, Message> {
                     container(
                         row![text("PBKDF2 迭代:").size(14), text_input("100000", &model.settings_pbkdf2_iter).on_input(Message::SettingsPbkdf2IterChanged).padding([4.0, 6.0]).width(80)]
                     ).padding([4.0, 10.0]),
+                    container(
+                        row![text("自动锁定(分):").size(14), text_input("0", &model.settings_auto_lock).on_input(Message::SettingsAutoLockChanged).padding([4.0, 6.0]).width(50)]
+                    ).padding([4.0, 10.0]),
                     container(button("保存设置").on_press(Message::SettingsSave).style(button::primary).padding([4.0, 12.0])).padding(10),
                     container(button("导出恢复包").on_press(Message::ShowExportDialog).style(button::text).width(Fill)).padding(10),
                     container(button("导入恢复包").on_press(Message::ShowImportDialog).style(button::text).width(Fill)).padding(10),

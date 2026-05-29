@@ -23,6 +23,7 @@ mod view;
 use std::time::Duration;
 
 use iced::keyboard;
+use iced::time;
 use iced::{Font, Subscription, Task, Theme};
 
 use crate::model::{LockedModel, Model};
@@ -74,9 +75,13 @@ fn subscription(model: &Model) -> Subscription<message::Message> {
     match model {
         Model::Locked(_) => Subscription::none(),
         Model::Unlocked(_) => {
-            keyboard::on_key_press(|key, modifiers| {
+            let kb = keyboard::on_key_press(|key, modifiers| {
                 Some(message::Message::KeyPressed(key, modifiers))
-            })
+            });
+            // 每 10 秒检查无操作超时
+            let timer = time::every(Duration::from_secs(10))
+                .map(|_| message::Message::CheckInactivity);
+            Subscription::batch([kb, timer])
         }
     }
 }

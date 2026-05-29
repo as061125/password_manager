@@ -20,14 +20,26 @@ mod search;
 mod update;
 mod view;
 
+use std::time::Duration;
+
 use iced::keyboard;
 use iced::{Font, Subscription, Task, Theme};
 
 use crate::model::{LockedModel, Model};
 
 fn main() -> iced::Result {
-    // 检测 CLI 模式：有命令行参数且不是由 Iced 启动
     let args: Vec<String> = std::env::args().skip(1).collect();
+
+    // 后台清除剪贴板模式（由 pwm 自身 spawn，60 秒后清除）
+    if args.len() == 1 && args[0] == "--clear-clipboard" {
+        std::thread::sleep(Duration::from_secs(60));
+        if let Ok(mut cb) = arboard::Clipboard::new() {
+            let _ = cb.clear();
+        }
+        return Ok(());
+    }
+
+    // CLI 模式
     if !args.is_empty() {
         match cli::run(&args) {
             Ok(()) => {}

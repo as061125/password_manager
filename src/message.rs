@@ -49,6 +49,9 @@ pub enum Message {
     ImportRecoveryPathChanged(String),
     ImportSubmit,
 
+    // ── 定时器 ──
+    CheckClipboardTimer,
+
     // ── <cmd> 命令结果 ──
     HideCmdResult,
 

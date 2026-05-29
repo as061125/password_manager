@@ -6,6 +6,9 @@
 
 use std::path::Path;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 use crate::message::{self, PwmCommand};
 use crate::model::{PasswordEntry, VaultSettings};
 use crate::vault;
@@ -197,8 +200,16 @@ pub fn run(args: &[String]) -> Result<(), String> {
                         if let Ok(mut cb) = arboard::Clipboard::new() {
                             let _ = cb.set_text(e.password.clone());
                         }
+                        // spawn 后台进程，60 秒后自动清除
+                        if let Ok(exe) = std::env::current_exe() {
+                            let mut cmd = std::process::Command::new(exe);
+                            cmd.arg("--clear-clipboard");
+                            #[cfg(windows)]
+                            cmd.creation_flags(0x08000000);
+                            let _ = cmd.spawn();
+                        }
                         if !plaintext {
-                            println!("(已复制到剪贴板)");
+                            println!("(已复制到剪贴板，60秒后自动清除)");
                         }
                     }
                 }

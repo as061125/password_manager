@@ -2,6 +2,9 @@
 // update —— 所有业务逻辑 + 状态转换
 // ============================================================================
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 use iced::clipboard;
 use iced::keyboard::{self, key::Named};
 use iced::widget::{scrollable, text_input};
@@ -330,10 +333,19 @@ pub fn update(model: &mut Model, message: Message) -> Task<Message> {
                 }
                 Message::CopyPassword(idx) => {
                     if let Some(entry) = u.entries.get(idx) {
+                        // 生成后台进程，60 秒后自动清除剪贴板
+                        if let Ok(exe) = std::env::current_exe() {
+                            let mut cmd = std::process::Command::new(exe);
+                            cmd.arg("--clear-clipboard");
+                            #[cfg(windows)]
+                            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+                            let _ = cmd.spawn();
+                        }
                         return clipboard::write(entry.password.clone());
                     }
                     None
                 }
+                Message::CheckClipboardTimer => { None }
 
                 // ── 设置 ──
                 Message::SettingsHistoryCountChanged(val) => {

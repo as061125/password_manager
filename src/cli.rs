@@ -252,7 +252,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
                     name: name.clone(),
                     password: pwd,
                 });
-                vault::save(vault_path, &salt, &key, &content)
+                vault::save(&vault_path, &salt, &key, &content)
                     .map_err(|e| format!("保存失败: {e}"))?;
                 println!("已添加: {}", name);
             }
@@ -266,7 +266,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
             if removed == 0 {
                 println!("未找到匹配: {}", name);
             } else {
-                vault::save(vault_path, &salt, &key, &content)
+                vault::save(&vault_path, &salt, &key, &content)
                     .map_err(|e| format!("保存失败: {e}"))?;
                 println!("已删除 {} 个条目", removed);
             }
@@ -278,12 +278,12 @@ pub fn run(args: &[String]) -> Result<(), String> {
                 Path::new(dir)
             };
             std::fs::create_dir_all(dst).map_err(|e| format!("创建目录失败: {e}"))?;
-            vault::export_vault(vault_path, dst, &salt, &key, &content)
+            vault::export_vault(&vault_path, dst, &salt, &key, &content)
                 .map_err(|e| format!("导出失败: {e}"))?;
             println!("已导出到: {}", dst.display());
         }
-        PwmCommand::Import { ref vault_path, ref recovery_path } => {
-            let vp = Path::new(vault_path);
+        PwmCommand::Import { vault_path: ref vp_str, ref recovery_path } => {
+            let vp = Path::new(vp_str);
             let rp = Path::new(recovery_path);
             let (imported, _salt2, _key2) =
                 vault::import_vault(vp, rp).map_err(|e| format!("导入失败: {e}"))?;
